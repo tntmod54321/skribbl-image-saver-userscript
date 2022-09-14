@@ -1,4 +1,9 @@
-auto save at the end of the round? //check every 50-100ms? (if you do this also cache drawer and prompt)
-hide buttons (open in new tab, mirror canvas) (debug flag?)
-
 maybe not possible- but save canvas as video?
+
+debug flag
+cache prompt, cache username (+check if they're still valid)
+auto save at the end of the round
+add autodownload button(s)
+save autodownload preferences to a cookie (expire=365?)
+make button generation programmatic?
+make open image in new tab open to a bare html page so you can save it

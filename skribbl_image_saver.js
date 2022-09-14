@@ -14,12 +14,35 @@ var imageElementAlreadyCreated=false
 var buttonToggle=false
 var base64data
 var stylesheets
-var debugMode=false
+var debugMode=true
 const overlayPromptRE = new RegExp('The word was: ([a-zA-Z0-9 ]+)'); //don't match for characters that would make invalid filenames
-const removeInvalidCharsRE = new RegExp('[^0-9a-zA-Z_\\- ]'); //sanitize characters for filenames.
+const removeInvalidCharsRE = new RegExp('[^0-9a-zA-Z_\\- ]', 'g'); //sanitize characters for filenames.
+// vars for caching names and prompts for downloads
+var lastKnownName=null
+var lastKnownPrompt=null
+var roundEnded=null // if we are in a 'round end' state
+const overlayPresentRE = new RegExp('display: none;$')
+// prefs
+var autoDLImgs=true
+var autoDLImgdone=false
+var autoDLChatLogs=true
+var autoDLChatLogdone=false
 
-function getCurrentDrawer(){
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getRoundState(){
+    var state=false //round is not ended by default
+    var overlay=document.getElementById("overlay")
+    if (overlay.style.cssText.match(overlayPresentRE)) {state=false}
+    else {state=true}
+    return state
+}
+
+function getCurrentDrawer(queryisknown=false){
     var drawer = "unknown"
+    var isknown = false
 
     //under class=player/class=avatar/
     //drawer: <div class="drawing"></div>
@@ -29,33 +52,36 @@ function getCurrentDrawer(){
 
     for (let i = 0; i < players.length; i++) {
         var drawerElement = players[i].getElementsByClassName("drawing")[0] //only one per player (therefor 0 is the only index)
-        if (!drawerElement.style.cssText) {drawer=players[i].getElementsByClassName("name")[0].innerText;break}
+        if (!drawerElement.style.cssText) {drawer=players[i].getElementsByClassName("name")[0].innerText;isknown=true;break}
     }
 
     //parantheses only allowed when you're the drawer, so remove ' (You)'
     drawer=drawer.replace(new RegExp(' \\(You\\)$'), '')
     //try to sanitize username
     drawer=drawer.replace(removeInvalidCharsRE, '');
+    if (queryisknown) {return [drawer, isknown]}
     return drawer
 }
 
-function getPrompt(){
+function getPrompt(queryisknown=false){
     var prompt = "unknown"
+    var isknown = false
 
     var contentClass=document.getElementsByClassName('content')
     for (let i = 0; i < contentClass.length; i++) {
         var text = contentClass[i].getElementsByClassName("text")[0]
         var result = text.outerText.match(overlayPromptRE)
-        if (result) {prompt=result[1];break}
+        if (result) {prompt=result[1];isknown=true;break}
     }
 
     //if we don't get a result use this fallback
     if (!result) {
         var fallbackElement=document.getElementById('currentWord')
         if (fallbackElement) { //don't crash if the element doesn't exist
-            if (fallbackElement.outerText!="") {prompt = fallbackElement.outerText}
+            if (fallbackElement.outerText!="") {prompt = fallbackElement.outerText;isknown=true}
         }
     }
+    if (queryisknown) {return [prompt, isknown]}
     return prompt
 }
 
@@ -133,6 +159,8 @@ function mirBtnFunc(){
 }
 
 //Download Image
+//https://stackoverflow.com/questions/52817280/problem-downloading-a-pdf-blob-in-javascript
+//!!do something with this ^
 async function downloadBlobImage(){
 	var Image = await canvasToBlob();
     var reader = new FileReader()
@@ -141,7 +169,7 @@ async function downloadBlobImage(){
         var base64data = reader.result
         var a = document.createElement('a')
         a.setAttribute('href', base64data)
-        var DL_Name="skribbl-"+(Date.now()/1000|0)+'-'+getCurrentDrawer()+"-"+getPrompt()+".png" //round date.now to secs instead of millis
+        var DL_Name="skribbl-"+(Date.now()/1000|0)+'-'+lastKnownName+"-"+lastKnownPrompt+".png" //round date.now to secs instead of millis
         a.setAttribute('download', DL_Name)
         document.body.appendChild(a)
         a.click()
@@ -151,12 +179,15 @@ async function downloadBlobImage(){
 }
 
 //open the blob as an image in a new tab
+//!!TRY TO ACTUALLY FIX THIS
+//create basically <html><a></html> and in that way you can set the filename and probably have it work
 async function openImageInNewTab(){
     var Image = await canvasToBlob()
     var fileURL = URL.createObjectURL(Image)
     var a = document.createElement('a')
     a.href = fileURL
     a.target = '_blank'
+    //a.download = 'test.png'
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -204,7 +235,8 @@ function main(){
     insertDownloadChatlogButton()
     if (debugMode) {insertMirrorButton()}
     console.log("Skribbl Image Saver Loaded!")
-    //maybe add a while true loop here that updates globally the prompt (for use in filenames)
+
+    autoFuncs()
 }
 
 //open text in new tab
@@ -240,7 +272,7 @@ function downloadText(array){
     var fileURL = URL.createObjectURL(chatLogBlob)
     var a = document.createElement('a')
     a.setAttribute('href', fileURL)
-    var DL_Name="skribblchatlog-"+(Date.now()/1000|0)+'-'+getPrompt()+".html" //round date.now to secs instead of millis
+    var DL_Name="skribblchatlog-"+(Date.now()/1000|0)+'-'+lastKnownPrompt+".html" //round date.now to secs instead of millis
     a.setAttribute('download', DL_Name)
     document.body.appendChild(a)
     a.click()
@@ -259,6 +291,32 @@ function saveChat(){
     downloadText(array2)
 }
 
+async function autoFuncs(){
+    while (true) {
+        await sleep(100);
+        //check for drawer's name and prompt name
+        var prompt=await getPrompt(true)
+        if (prompt[1] && !roundEnded) {lastKnownPrompt=prompt[0];} // if roundend don't update lastknownprompt
+        var lastFrameRoundEndState = roundEnded
+        roundEnded=getRoundState()
+        if (!roundEnded && lastFrameRoundEndState) {autoDLImgdone=false;autoDLChatLogdone=false;} // if a new round just started
+        var drawer=await getCurrentDrawer(true)
+        if (drawer[1]) {lastKnownName=drawer[0]} // if the name is known to be valid AND isn't at the end of the round
+
+        if (autoDLImgs && roundEnded && !autoDLImgdone){await downloadBlobImage();autoDLImgdone=true;}
+
+        if (autoDLChatLogs && roundEnded && !autoDLChatLogdone){await saveChat();autoDLChatLogdone=true;}
+
+        //!!if autodownload images check if round has just ended and initiate downloads
+        //check if new round:
+        //either check second counter, or when the overlay gets its style set to 'display: none;'
+        //make sure to have button checkboxe(s) for this
+        //https://stackoverflow.com/questions/13452626/create-a-cookie-with-javascript-in-greasemonkey
+        //use cookie to save prefs?
+        //if autodownload chatlogs...
+    }
+}
+
 function insertDownloadChatlogButton(){
     var leftSidebar = document.getElementById("containerPlayerlist")
     var chatlogButton = document.createElement("button")
@@ -273,7 +331,7 @@ function insertDownloadChatlogButton(){
     leftSidebar.appendChild(chatlogButton)
 }
 
-//test function with e
+//test any function with e
 /*
 document.onkeyup=function(e){
     if(e.which == 69) {
