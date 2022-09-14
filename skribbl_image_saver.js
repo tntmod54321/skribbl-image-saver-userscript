@@ -1,11 +1,13 @@
 // ==UserScript==
-// @name         skribbl image saver
-// @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description
+// @name         Skribbl Image Saver
+// @namespace    https://github.com/tntmod54321
+// @version      1.1
+// @description  Automatically save images and chatlogs from skribbl.io
 // @author       tntmod54321
-// @match        https://skribbl.io/*
+// @homepageURL  https://github.com/tntmod54321/skribbl-image-saver-userscript
+// @match        https://skribbl.io*
 // @grant        none
+// @license      CC0
 // ==/UserScript==
 
 //initialize global variables
