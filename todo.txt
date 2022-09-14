@@ -2,3 +2,5 @@ better filename generation (skribbl_prompt_unixtime.ext ?)
 auto save at the end of the round?
 hide buttons (open in new tab, mirror canvas) (debug flag?)
 download chatlog
+
+maybe not possible- but save canvas as video?
