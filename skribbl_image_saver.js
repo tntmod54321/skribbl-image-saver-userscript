@@ -14,7 +14,7 @@ var imageElementAlreadyCreated=false
 var buttonToggle=false
 var base64data
 var stylesheets
-var debugMode=true
+var debugMode=false
 const overlayPromptRE = new RegExp('The word was: ([a-zA-Z0-9 ]+)'); //don't match for characters that would make invalid filenames
 const removeInvalidCharsRE = new RegExp('[^0-9a-zA-Z_\\- ]', 'g'); //sanitize characters for filenames.
 // vars for caching names and prompts for downloads
