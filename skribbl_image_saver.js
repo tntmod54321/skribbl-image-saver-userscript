@@ -14,24 +14,36 @@ var imageElementAlreadyCreated=false
 var buttonToggle=false
 var base64data
 var stylesheets
-var debugMode=true
-const overlayPromptRE = new RegExp('The word was: ([a-zA-Z0-9]+)'); //don't match for characters that would make invalid filenames
-const testString = "The word was: Tom!"
-//const testString = "tom!"
+var debugMode=false
+const overlayPromptRE = new RegExp('The word was: ([a-zA-Z0-9 ]+)'); //don't match for characters that would make invalid filenames
+const removeInvalidCharsRE = new RegExp('[^0-9a-zA-Z_\\- ]'); //sanitize characters for filenames.
 
 function getCurrentDrawer(){
     var drawer = "unknown"
-    //if .style="" then they're the drawer
-    //for
-    console.log("the drawer is", drawer)
-    //return drawer
+
+    //under class=player/class=avatar/
+    //drawer: <div class="drawing"></div>
+    //non-drawer: <div class="drawing" style="display: none;"></div>
+    var playerContainer=document.getElementById("containerGamePlayers")
+    var players = playerContainer.getElementsByClassName("player")
+
+    for (let i = 0; i < players.length; i++) {
+        var drawerElement = players[i].getElementsByClassName("drawing")[0] //only one per player (therefor 0 is the only index)
+        if (!drawerElement.style.cssText) {drawer=players[i].getElementsByClassName("name")[0].innerText;break}
+    }
+
+    //parantheses only allowed when you're the drawer, so remove ' (You)'
+    drawer=drawer.replace(new RegExp(' \\(You\\)$'), '')
+    //try to sanitize username
+    drawer=drawer.replace(removeInvalidCharsRE, '');
+    return drawer
 }
 
 function getPrompt(){
     var prompt = "unknown"
 
     var contentClass=document.getElementsByClassName('content')
-    for (let i = 0; i < contentClass.length; i++) { // make this something like for class in contentClasses
+    for (let i = 0; i < contentClass.length; i++) {
         var text = contentClass[i].getElementsByClassName("text")[0]
         var result = text.outerText.match(overlayPromptRE)
         if (result) {prompt=result[1];break}
@@ -44,7 +56,6 @@ function getPrompt(){
             if (fallbackElement.outerText!="") {prompt = fallbackElement.outerText}
         }
     }
-
     return prompt
 }
 
@@ -130,7 +141,7 @@ async function downloadBlobImage(){
         var base64data = reader.result
         var a = document.createElement('a')
         a.setAttribute('href', base64data)
-        var DL_Name="skribbl-"+getPrompt()+"-"+(Date.now()/1000|0)+".png" //round date.now to secs instead of millis
+        var DL_Name="skribbl-"+getCurrentDrawer()+"-"+getPrompt()+"-"+(Date.now()/1000|0)+".png" //round date.now to secs instead of millis
         a.setAttribute('download', DL_Name)
         document.body.appendChild(a)
         a.click()
@@ -263,11 +274,11 @@ function insertDownloadChatlogButton(){
 }
 
 //test function with e
-
+/*
 document.onkeyup=function(e){
     if(e.which == 69) {
         getCurrentDrawer()
     }
 };
-
+*/
 main()
