@@ -141,7 +141,7 @@ async function downloadBlobImage(){
         var base64data = reader.result
         var a = document.createElement('a')
         a.setAttribute('href', base64data)
-        var DL_Name="skribbl-"+getCurrentDrawer()+"-"+getPrompt()+"-"+(Date.now()/1000|0)+".png" //round date.now to secs instead of millis
+        var DL_Name="skribbl-"+(Date.now()/1000|0)+'-'+getCurrentDrawer()+"-"+getPrompt()+".png" //round date.now to secs instead of millis
         a.setAttribute('download', DL_Name)
         document.body.appendChild(a)
         a.click()
@@ -240,7 +240,7 @@ function downloadText(array){
     var fileURL = URL.createObjectURL(chatLogBlob)
     var a = document.createElement('a')
     a.setAttribute('href', fileURL)
-    var DL_Name="skribblchatlog-"+getPrompt()+"-"+(Date.now()/1000|0)+".html" //round date.now to secs instead of millis
+    var DL_Name="skribblchatlog-"+(Date.now()/1000|0)+'-'+getPrompt()+".html" //round date.now to secs instead of millis
     a.setAttribute('download', DL_Name)
     document.body.appendChild(a)
     a.click()
