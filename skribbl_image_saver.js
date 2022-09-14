@@ -14,10 +14,38 @@ var imageElementAlreadyCreated=false
 var buttonToggle=false
 var base64data
 var stylesheets
+var debugMode=true
+const overlayPromptRE = new RegExp('The word was: ([a-zA-Z0-9]+)'); //don't match for characters that would make invalid filenames
+const testString = "The word was: Tom!"
+//const testString = "tom!"
 
-//generate random number
-function getRndInteger(min, max) {
-  return Math.floor(Math.random() * (max - min + 1) ) + min;
+function getCurrentDrawer(){
+    var drawer = "unknown"
+    //if .style="" then they're the drawer
+    //for
+    console.log("the drawer is", drawer)
+    //return drawer
+}
+
+function getPrompt(){
+    var prompt = "unknown"
+
+    var contentClass=document.getElementsByClassName('content')
+    for (let i = 0; i < contentClass.length; i++) { // make this something like for class in contentClasses
+        var text = contentClass[i].getElementsByClassName("text")[0]
+        var result = text.outerText.match(overlayPromptRE)
+        if (result) {prompt=result[1];break}
+    }
+
+    //if we don't get a result use this fallback
+    if (!result) {
+        var fallbackElement=document.getElementById('currentWord')
+        if (fallbackElement) { //don't crash if the element doesn't exist
+            if (fallbackElement.outerText!="") {prompt = fallbackElement.outerText}
+        }
+    }
+
+    return prompt
 }
 
 //create an element to be able to display the image
@@ -102,8 +130,7 @@ async function downloadBlobImage(){
         var base64data = reader.result
         var a = document.createElement('a')
         a.setAttribute('href', base64data)
-        var rndInt=getRndInteger(1000000, 9999999)
-        var DL_Name="skribbl_download_"+rndInt+".png"
+        var DL_Name="skribbl-"+getPrompt()+"-"+(Date.now()/1000|0)+".png" //round date.now to secs instead of millis
         a.setAttribute('download', DL_Name)
         document.body.appendChild(a)
         a.click()
@@ -162,10 +189,11 @@ function main(){
     stylesheets.removeProperty("justify-content")
 	//insert buttons, in order they appear on the screen
 	insertDownloadButton()
-    insertNewTabButton()
+    if (debugMode) {insertNewTabButton()}
     insertDownloadChatlogButton()
-    insertMirrorButton()
+    if (debugMode) {insertMirrorButton()}
     console.log("Skribbl Image Saver Loaded!")
+    //maybe add a while true loop here that updates globally the prompt (for use in filenames)
 }
 
 //open text in new tab
@@ -201,8 +229,7 @@ function downloadText(array){
     var fileURL = URL.createObjectURL(chatLogBlob)
     var a = document.createElement('a')
     a.setAttribute('href', fileURL)
-    var rndInt=getRndInteger(1000000, 9999999)
-    var DL_Name="skribbl_chatLog_"+rndInt+".html"
+    var DL_Name="skribblchatlog-"+getPrompt()+"-"+(Date.now()/1000|0)+".html" //round date.now to secs instead of millis
     a.setAttribute('download', DL_Name)
     document.body.appendChild(a)
     a.click()
@@ -236,11 +263,11 @@ function insertDownloadChatlogButton(){
 }
 
 //test function with e
-/*
+
 document.onkeyup=function(e){
     if(e.which == 69) {
-        saveChat()
+        getCurrentDrawer()
     }
 };
-*/
+
 main()
