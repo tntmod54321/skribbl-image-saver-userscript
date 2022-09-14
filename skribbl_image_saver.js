@@ -15,7 +15,7 @@ var buttonToggle=false
 var base64data
 var stylesheets
 var debugMode=false
-const overlayPromptRE = new RegExp('The word was: ([a-zA-Z0-9 ]+)'); //don't match for characters that would make invalid filenames
+const overlayPromptRE = new RegExp('The word was: ([a-zA-Z0-9\\- ]+)'); //don't match for characters that would make invalid filenames
 const removeInvalidCharsRE = new RegExp('[^0-9a-zA-Z_\\- ]', 'g'); //sanitize characters for filenames.
 // vars for caching names and prompts for downloads
 var lastKnownName=null
@@ -28,8 +28,35 @@ var autoDLImgdone=false
 var autoDLChatLogs=true
 var autoDLChatLogdone=false
 
+var autoDLImgs_is_checked=false
+var autoDLChatLogs_is_checked=false
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function setCookie(c_name, value, expiredays) {
+    var exdate = new Date();
+    exdate.setDate(exdate.getDate()+expiredays);
+    document.cookie = c_name + "=" + escape(value) + ((expiredays==null) ?
+        "" :
+        ";expires="+exdate.toUTCString());
+}
+
+function getCookie(cname) {
+  let name = cname + "=";
+  let decodedCookie = decodeURIComponent(document.cookie);
+  let ca = decodedCookie.split(';');
+  for(let i = 0; i <ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) == ' ') {
+      c = c.substring(1);
+    }
+    if (c.indexOf(name) == 0) {
+      return c.substring(name.length, c.length);
+    }
+  }
+  return "";
 }
 
 function getRoundState(){
@@ -143,7 +170,7 @@ function insertDownloadButton(){
     downloadButton.classList.add('btn')
     downloadButton.classList.add('btn-block')
     downloadButton.id="downloadImage"
-    downloadButton.style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(102, 218, 92);border-color: rgb(72, 214, 50);"
+    downloadButton.style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(117, 142, 250);border-color: rgb(93, 113, 199);"
     var downloadText = document.createTextNode("Download image");
 
 	downloadButton.onclick=function() {downloadBlobImage()}
@@ -160,7 +187,7 @@ function mirBtnFunc(){
 
 //Download Image
 //https://stackoverflow.com/questions/52817280/problem-downloading-a-pdf-blob-in-javascript
-//!!do something with this ^
+//!!do something with this ^ (you don't need to convert to data url)
 async function downloadBlobImage(){
 	var Image = await canvasToBlob();
     var reader = new FileReader()
@@ -229,11 +256,15 @@ function main(){
 	var stylesheetIndex=getStyleSheet("#containerPlayerlist")
 	var stylesheets=document.styleSheets[1].cssRules[stylesheetIndex].style
     stylesheets.removeProperty("justify-content")
+    // should read cookies here
+
 	//insert buttons, in order they appear on the screen
 	insertDownloadButton()
     if (debugMode) {insertNewTabButton()}
     insertDownloadChatlogButton()
     if (debugMode) {insertMirrorButton()}
+    insertAutoDLImgsCheckbox()
+    insertAutoDLChatLogsCheckbox()
     console.log("Skribbl Image Saver Loaded!")
 
     autoFuncs()
@@ -307,13 +338,9 @@ async function autoFuncs(){
 
         if (autoDLChatLogs && roundEnded && !autoDLChatLogdone){await saveChat();autoDLChatLogdone=true;}
 
-        //!!if autodownload images check if round has just ended and initiate downloads
-        //check if new round:
-        //either check second counter, or when the overlay gets its style set to 'display: none;'
         //make sure to have button checkboxe(s) for this
         //https://stackoverflow.com/questions/13452626/create-a-cookie-with-javascript-in-greasemonkey
         //use cookie to save prefs?
-        //if autodownload chatlogs...
     }
 }
 
@@ -323,7 +350,7 @@ function insertDownloadChatlogButton(){
     chatlogButton.classList.add('btn')
     chatlogButton.classList.add('btn-block')
     chatlogButton.id="downloadChatLog"
-    chatlogButton.style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(230, 204, 18);border-color: rgb(132, 119, 32);"
+    chatlogButton.style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(117, 142, 250);border-color: rgb(93, 113, 199);"
 
 	chatlogButton.onclick=function() {saveChat()}
     var newTabText = document.createTextNode("Download Chatlog");
@@ -331,11 +358,117 @@ function insertDownloadChatlogButton(){
     leftSidebar.appendChild(chatlogButton)
 }
 
+function updateAudoDLImgsPref(){ //set button to green or red?
+    if (autoDLImgs_is_checked) {
+        // color button red
+        document.getElementById("autoDlImgsToggle").style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(214, 45, 45);border-color: rgb(214, 45, 45);"
+        autoDLImgs_is_checked=false
+        autoDLImgs=false
+    }
+    else {
+        // color button green
+        document.getElementById("autoDlImgsToggle").style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(102, 218, 92);border-color: rgb(102, 218, 92);"
+        // make it not autodownload in the middle of a round if you toggle the button (idk if this is real)
+        autoDLImgs_is_checked=true
+        autoDLImgs=true
+    }
+    console.log("Skribble Image Saver: save_images", autoDLImgs_is_checked)
+    setCookie("SIS_autodlimgs", autoDLImgs_is_checked, 365);
+    // update cookie(s) (cookie=autoDLImgs_is_checked)
+}
+
+function insertAutoDLImgsCheckbox(){
+    var leftSidebar = document.getElementById("containerPlayerlist")
+    var autodlimgsButton = document.createElement("checkbox")
+    autodlimgsButton.classList.add('btn')
+    autodlimgsButton.classList.add('btn-block')
+    autodlimgsButton.id="autoDlImgsToggle"
+    //read cookie and set style accordingly
+    var adlimgs_cookie = getCookie("SIS_autodlimgs")
+    if (adlimgs_cookie=="") { // if no cookie set to false
+        console.log("no adlimgs cookie set")
+        autoDLImgs_is_checked=false
+        autoDLImgs=false
+        adlimgs_cookie=false
+        setCookie("SIS_autodlimgs", false, 365);
+    }
+    if (adlimgs_cookie=="false"||adlimgs_cookie==false){
+        // color button red
+        autodlimgsButton.style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(214, 45, 45);border-color: rgb(214, 45, 45);"
+        autoDLImgs_is_checked=false
+        autoDLImgs=false
+    }
+    else {
+        // color button green
+        autodlimgsButton.style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(102, 218, 92);border-color: rgb(102, 218, 92);"
+        // make it not autodownload in the middle of a round if you toggle the button (idk if this is real)
+        autoDLImgs_is_checked=true
+        autoDLImgs=true
+    }
+	autodlimgsButton.onclick=function() {updateAudoDLImgsPref()}
+    var newTabText = document.createTextNode("AutoDL Images");
+	autodlimgsButton.appendChild(newTabText)
+    leftSidebar.appendChild(autodlimgsButton)
+}
+
+function updateAudoDLChatLogsPref(){ //set button to green or red?
+    if (autoDLChatLogs_is_checked) {
+        // color button red
+        document.getElementById("autoDlChatLogsToggle").style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(214, 45, 45);border-color: rgb(214, 45, 45);"
+        autoDLChatLogs_is_checked=false
+        autoDLChatLogs=false
+    }
+    else {
+        // color button green
+        document.getElementById("autoDlChatLogsToggle").style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(102, 218, 92);border-color: rgb(102, 218, 92);"
+        // make it not autodownload in the middle of a round if you toggle the button (idk if this is real)
+        autoDLChatLogs_is_checked=true
+        autoDLChatLogs=true
+    }
+    console.log("Skribble Image Saver: save_chatlogs", autoDLChatLogs_is_checked)
+    setCookie("SIS_autodlchatlogs", autoDLChatLogs_is_checked, 365);
+}
+
+function insertAutoDLChatLogsCheckbox(){
+    var leftSidebar = document.getElementById("containerPlayerlist")
+    var autodllogsButton = document.createElement("checkbox")
+    autodllogsButton.classList.add('btn')
+    autodllogsButton.classList.add('btn-block')
+    autodllogsButton.id="autoDlChatLogsToggle"
+    //read cookie and set style accordingly
+    var adllogs_cookie = getCookie("SIS_autodlchatlogs")
+    if (adllogs_cookie=="") { // if no cookie set to false
+        console.log("no adlcl cookie set")
+        autoDLChatLogs_is_checked=false
+        autoDLChatLogs=false
+        adllogs_cookie=false
+        setCookie("SIS_autodlchatlogs", false, 365);
+    }
+    if (adllogs_cookie=="false"||adllogs_cookie==false){
+        // color button red
+        autodllogsButton.style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(214, 45, 45);border-color: rgb(214, 45, 45);"
+        autoDLChatLogs_is_checked=false
+        autoDLChatLogs=false
+    }
+    else {
+        // color button green
+        autodllogsButton.style="margin-top:8px;color: rgb(255, 255, 255);background-color: rgb(102, 218, 92);border-color: rgb(102, 218, 92);"
+        // make it not autodownload in the middle of a round if you toggle the button (idk if this is real)
+        autoDLChatLogs_is_checked=true
+        autoDLChatLogs=true
+    }
+	autodllogsButton.onclick=function() {updateAudoDLChatLogsPref()}
+    var newTabText = document.createTextNode("AutoDL Chatlogs");
+	autodllogsButton.appendChild(newTabText)
+    leftSidebar.appendChild(autodllogsButton)
+}
+
 //test any function with e
 /*
 document.onkeyup=function(e){
     if(e.which == 69) {
-        getCurrentDrawer()
+        //console.log()
+        console.log(getCookie("dfjskfjksd"))
     }
 };
 */
